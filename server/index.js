@@ -156,19 +156,36 @@ app.post('/api/chat', async (req, res) => {
       { role: 'user', content: message }
     ]
 
-    // System prompt
-    const systemPrompt = `You are an Excel expert assistant helping users edit their spreadsheets. You have access to tools that let you read and modify the spreadsheet.
+    // Build comprehensive spreadsheet context
+    const spreadsheetContext = buildSpreadsheetContext(spreadsheetData)
 
-IMPORTANT RULES:
-1. Always call get_sheet_info first if you haven't already, to understand the spreadsheet structure.
-2. Use get_cell_range to read data before making changes.
-3. When creating formulas, use standard Excel formula syntax (e.g., =SUM, =VLOOKUP, =IF).
-4. For formulas that should be applied to multiple rows, use apply_formula_to_range.
-5. Be precise with cell references and sheet names.
-6. Explain what you're doing as you make changes.
+    // System prompt - Argentinian Spanish, friendly for Tomi
+    const systemPrompt = `Sos un asistente experto en Excel que ayuda a Tomi a editar sus planillas. Hablás en español rioplatense (Argentina), de manera amigable, relajada y natural. Usás "vos" en vez de "tú", y expresiones como "dale", "buenísimo", "genial", "tranqui", etc.
 
-Current spreadsheet context:
-${JSON.stringify(spreadsheetData?.sheets?.map(s => ({ name: s.name, rows: s.data?.length, cols: s.data?.[0]?.length, headers: s.data?.[0]?.slice(0, 10) })) || [], null, 2)}`
+PERSONALIDAD:
+- Sos paciente y explicás las cosas de forma simple, porque Tomi no maneja bien las fórmulas
+- Cuando creás una fórmula, explicá brevemente qué hace en palabras simples
+- Celebrá los logros ("¡Listo! Quedó joya")
+- Si algo puede ser confuso, aclaralo con ejemplos
+- Sé proactivo: si ves algo que se podría mejorar, sugerilo
+
+CAPACIDADES:
+Tenés acceso completo al archivo Excel de Tomi. Podés:
+- Ver TODOS los datos en tiempo real
+- Crear y modificar fórmulas (SUM, AVERAGE, VLOOKUP, IF, etc.)
+- Agregar/eliminar columnas y filas
+- Aplicar fórmulas a rangos enteros
+- Analizar datos y dar sugerencias
+
+REGLAS IMPORTANTES:
+1. SIEMPRE usá get_sheet_info primero para entender la estructura
+2. Usá get_cell_range para leer datos antes de hacer cambios
+3. Explicá en español simple qué va a hacer cada fórmula
+4. Para fórmulas en múltiples filas, usá apply_formula_to_range
+5. Sé preciso con las referencias de celdas
+
+CONTEXTO ACTUAL DE LA PLANILLA:
+${spreadsheetContext}`
 
     // Initial Claude call
     let response = await anthropic.messages.create({
@@ -351,6 +368,95 @@ function columnToIndex(col) {
     index = index * 26 + (col.charCodeAt(i) - 64)
   }
   return index - 1
+}
+
+// Build comprehensive spreadsheet context for Claude
+function buildSpreadsheetContext(spreadsheetData) {
+  if (!spreadsheetData || !spreadsheetData.sheets) {
+    return 'No hay planilla cargada todavía.'
+  }
+
+  const { sheets, activeSheet } = spreadsheetData
+  const currentSheet = sheets[activeSheet]
+  
+  let context = ''
+  
+  // Sheet overview
+  context += `📊 HOJAS DISPONIBLES: ${sheets.map((s, i) => i === activeSheet ? `[${s.name}] (activa)` : s.name).join(', ')}\n\n`
+  
+  // Current sheet details
+  context += `📋 HOJA ACTIVA: "${currentSheet.name}"\n`
+  context += `   Filas con datos: ${countDataRows(currentSheet.data)}\n`
+  context += `   Columnas: ${currentSheet.data?.[0]?.length || 0}\n\n`
+  
+  // Headers with column letters
+  if (currentSheet.data && currentSheet.data[0]) {
+    context += `📝 ENCABEZADOS (Fila 1):\n`
+    currentSheet.data[0].forEach((header, idx) => {
+      if (header !== '' && header !== null && header !== undefined) {
+        const colLetter = indexToColumnLetter(idx)
+        context += `   ${colLetter}: "${header}"\n`
+      }
+    })
+    context += '\n'
+  }
+  
+  // Full data preview (up to 50 rows for context)
+  const maxRows = Math.min(50, currentSheet.data?.length || 0)
+  if (maxRows > 1) {
+    context += `📊 DATOS (primeras ${maxRows} filas):\n`
+    for (let r = 0; r < maxRows; r++) {
+      const row = currentSheet.data[r]
+      if (!row) continue
+      
+      const nonEmptyCells = []
+      row.forEach((cell, idx) => {
+        if (cell !== '' && cell !== null && cell !== undefined) {
+          const colLetter = indexToColumnLetter(idx)
+          nonEmptyCells.push(`${colLetter}${r+1}=${cell}`)
+        }
+      })
+      
+      if (nonEmptyCells.length > 0) {
+        context += `   Fila ${r + 1}: ${nonEmptyCells.join(', ')}\n`
+      }
+    }
+    
+    const totalRows = countDataRows(currentSheet.data)
+    if (totalRows > maxRows) {
+      context += `   ... y ${totalRows - maxRows} filas más\n`
+    }
+  }
+  
+  // Existing formulas
+  if (currentSheet.formulas && Object.keys(currentSheet.formulas).length > 0) {
+    context += `\n🔢 FÓRMULAS EXISTENTES:\n`
+    Object.entries(currentSheet.formulas).forEach(([cell, formula]) => {
+      context += `   ${cell}: ${formula}\n`
+    })
+  }
+  
+  return context
+}
+
+// Count rows that have at least one non-empty cell
+function countDataRows(data) {
+  if (!data) return 0
+  return data.filter(row => 
+    row && row.some(cell => cell !== '' && cell !== null && cell !== undefined)
+  ).length
+}
+
+// Convert column index to letter (0=A, 1=B, etc.)
+function indexToColumnLetter(index) {
+  let letter = ''
+  index++
+  while (index > 0) {
+    const remainder = (index - 1) % 26
+    letter = String.fromCharCode(65 + remainder) + letter
+    index = Math.floor((index - 1) / 26)
+  }
+  return letter
 }
 
 // Health check

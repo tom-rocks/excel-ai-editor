@@ -94,12 +94,12 @@ export default function ChatPanel({ getSpreadsheetData, applyChanges, activeShee
       {/* Header */}
       <div className="px-4 py-3 border-b border-surface-light">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/20 to-success/20 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-accent" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-success flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-midnight" />
           </div>
           <div>
-            <h2 className="font-semibold text-white text-sm">AI Assistant</h2>
-            <p className="text-xs text-gray-500">Editing: {sheetName}</p>
+            <h2 className="font-semibold text-white text-sm">Asistente de Tomi</h2>
+            <p className="text-xs text-gray-500">Editando: {sheetName}</p>
           </div>
         </div>
       </div>
@@ -108,25 +108,29 @@ export default function ChatPanel({ getSpreadsheetData, applyChanges, activeShee
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-light flex items-center justify-center">
-              <Sparkles className="w-8 h-8 text-accent/50" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-accent/20 to-success/20 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-accent" />
             </div>
-            <h3 className="text-white font-medium mb-2">Ask me anything</h3>
-            <p className="text-gray-500 text-sm max-w-xs mx-auto">
-              I can help you create formulas, analyze data, add columns, and more.
+            <h3 className="text-white font-medium mb-2">¡Hola Tomi! 👋</h3>
+            <p className="text-gray-400 text-sm max-w-xs mx-auto">
+              Soy tu asistente para Excel. Contame qué necesitás y te ayudo con las fórmulas.
             </p>
             <div className="mt-4 space-y-2">
               <SuggestionButton 
-                onClick={() => setInput("Add a column that calculates the total (quantity × price)")} 
-                text="Add a total column"
+                onClick={() => setInput("Agregame una columna que calcule el total")} 
+                text="📊 Agregar columna de totales"
               />
               <SuggestionButton 
-                onClick={() => setInput("Create a SUM formula for all values in column B")} 
-                text="Sum a column"
+                onClick={() => setInput("Sumame todos los valores de una columna")} 
+                text="➕ Sumar una columna"
               />
               <SuggestionButton 
-                onClick={() => setInput("Add a formula to calculate percentage change")} 
-                text="Calculate % change"
+                onClick={() => setInput("Explicame qué datos tengo en la planilla")} 
+                text="👀 Ver qué hay en mi archivo"
+              />
+              <SuggestionButton 
+                onClick={() => setInput("Calculame el porcentaje de cada fila respecto al total")} 
+                text="📈 Calcular porcentajes"
               />
             </div>
           </div>
@@ -141,7 +145,7 @@ export default function ChatPanel({ getSpreadsheetData, applyChanges, activeShee
             <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
               <Loader2 className="w-4 h-4 text-success animate-spin" />
             </div>
-            <span className="text-sm">Thinking...</span>
+            <span className="text-sm">Pensando...</span>
           </div>
         )}
 
@@ -156,7 +160,7 @@ export default function ChatPanel({ getSpreadsheetData, applyChanges, activeShee
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Claude to edit your spreadsheet..."
+            placeholder="Contame qué necesitás..."
             rows={2}
             className="w-full px-4 py-3 pr-12 bg-surface-light rounded-xl text-white placeholder-gray-500 
               resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm"
@@ -176,7 +180,7 @@ export default function ChatPanel({ getSpreadsheetData, applyChanges, activeShee
           </button>
         </div>
         <p className="text-xs text-gray-600 mt-2 text-center">
-          Press Enter to send, Shift+Enter for new line
+          Enter para enviar · Shift+Enter para nueva línea
         </p>
       </form>
     </div>
@@ -226,7 +230,7 @@ function Message({ message }) {
             >
               {showTools ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               <Wrench className="w-3 h-3" />
-              <span>{message.toolCalls.length} tool{message.toolCalls.length > 1 ? 's' : ''} used</span>
+              <span>{message.toolCalls.length} {message.toolCalls.length > 1 ? 'acciones' : 'acción'}</span>
             </button>
           )}
           

@@ -32,7 +32,7 @@ export default function DownloadButton({ workbook, spreadsheetRef, fileName }) {
       ) : (
         <Download className="w-4 h-4" />
       )}
-      <span>{isExporting ? 'Exporting...' : 'Download .xlsx'}</span>
+      <span>{isExporting ? 'Exportando...' : 'Descargar .xlsx'}</span>
     </button>
   )
 }

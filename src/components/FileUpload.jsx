@@ -97,12 +97,12 @@ export default function FileUpload({ onFileUpload, isLoading }) {
         
         <div className="text-center">
           <h2 className="text-2xl font-display font-semibold text-white mb-2">
-            {isLoading ? 'Processing...' : isDragging ? 'Drop it!' : 'Upload Excel File'}
+            {isLoading ? 'Procesando...' : isDragging ? '¡Soltalo acá!' : '¡Hola Tomi! 👋'}
           </h2>
           <p className="text-gray-500 max-w-md">
             {isLoading 
-              ? 'Parsing your spreadsheet and preparing the editor...'
-              : 'Drag and drop your .xlsx or .xls file here, or click to browse'
+              ? 'Leyendo tu planilla y preparando todo...'
+              : 'Arrastrá tu archivo Excel acá, o hacé clic para buscarlo'
             }
           </p>
         </div>
@@ -110,7 +110,7 @@ export default function FileUpload({ onFileUpload, isLoading }) {
         {!isLoading && (
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <FileSpreadsheet className="w-4 h-4" />
-            <span>Supports Excel 2007+ formats</span>
+            <span>Archivos .xlsx y .xls</span>
           </div>
         )}
       </div>

@@ -65,7 +65,7 @@ function App() {
             <FileSpreadsheet className="w-5 h-5 text-midnight" />
           </div>
           <div>
-            <h1 className="text-xl font-display font-semibold text-white">Excel AI Editor</h1>
+            <h1 className="text-xl font-display font-semibold text-white">Excel para Tomi</h1>
             {fileName && (
               <p className="text-sm text-gray-500 font-mono">{fileName}</p>
             )}
