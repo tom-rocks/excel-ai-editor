@@ -50,10 +50,79 @@ function App() {
   }, [workbook, activeSheet])
 
   const applyChanges = useCallback((changes) => {
-    if (spreadsheetRef.current) {
-      spreadsheetRef.current.applyChanges(changes)
+    if (!workbook) return
+    
+    // Group changes by sheet
+    const changesBySheet = {}
+    changes.forEach(change => {
+      const sheetName = change.sheet || workbook.sheets[activeSheet].name
+      if (!changesBySheet[sheetName]) {
+        changesBySheet[sheetName] = []
+      }
+      changesBySheet[sheetName].push(change)
+    })
+    
+    // Apply changes to each sheet
+    Object.entries(changesBySheet).forEach(([sheetName, sheetChanges]) => {
+      const sheetIndex = workbook.sheets.findIndex(s => s.name === sheetName)
+      if (sheetIndex === -1) return
+      
+      if (sheetIndex === activeSheet && spreadsheetRef.current) {
+        // Active sheet - apply via Handsontable
+        spreadsheetRef.current.applyChanges(sheetChanges)
+      } else {
+        // Other sheet - update workbook data directly
+        setWorkbook(prev => {
+          const updated = { ...prev }
+          updated.sheets = [...prev.sheets]
+          const sheet = { ...updated.sheets[sheetIndex] }
+          const data = sheet.data.map(row => [...row])
+          const formulas = { ...sheet.formulas }
+          
+          sheetChanges.forEach(change => {
+            const { type, cell, value, formula, range, afterColumn, header } = change
+            
+            if (type === 'setCellValue' && cell) {
+              const match = cell.match(/^([A-Z]+)(\d+)$/)
+              if (match) {
+                const col = columnToIndex(match[1])
+                const row = parseInt(match[2]) - 1
+                while (data.length <= row) data.push([])
+                while (data[row].length <= col) data[row].push('')
+                data[row][col] = value
+              }
+            }
+            
+            if (type === 'setFormula' && cell && formula) {
+              const match = cell.match(/^([A-Z]+)(\d+)$/)
+              if (match) {
+                const col = columnToIndex(match[1])
+                const row = parseInt(match[2]) - 1
+                while (data.length <= row) data.push([])
+                while (data[row].length <= col) data[row].push('')
+                data[row][col] = formula
+                formulas[cell] = formula
+              }
+            }
+          })
+          
+          sheet.data = data
+          sheet.formulas = formulas
+          updated.sheets[sheetIndex] = sheet
+          return updated
+        })
+      }
+    })
+  }, [workbook, activeSheet])
+  
+  // Helper function
+  const columnToIndex = (col) => {
+    let result = 0
+    for (let i = 0; i < col.length; i++) {
+      result = result * 26 + (col.charCodeAt(i) - 64)
     }
-  }, [])
+    return result - 1
+  }
 
 
   return (
