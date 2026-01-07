@@ -2,7 +2,7 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm install --legacy-peer-deps']
+cmds = ['npm install']
 
 [phases.build]
 cmds = ['npm run build']
@@ -12,4 +12,6 @@ cmd = 'npm run start'
 
 [variables]
 NODE_ENV = 'production'
-NPM_CONFIG_PRODUCTION = 'false'
+
+[caches]
+enabled = false
