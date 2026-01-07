@@ -10,13 +10,18 @@ export async function parseExcelFile(file) {
   const arrayBuffer = await file.arrayBuffer()
   const data = new Uint8Array(arrayBuffer)
   
+  // Store the original array buffer for later export
+  const originalArrayBuffer = data.slice()
+  
   // Parse with SheetJS
   const workbook = XLSX.read(data, { 
     type: 'array',
     cellFormula: true,
     cellStyles: true,
     cellNF: true,
-    cellDates: true
+    cellDates: true,
+    bookVBA: true,
+    bookDeps: true
   })
   
   // Extract data validations from raw XML
@@ -60,7 +65,9 @@ export async function parseExcelFile(file) {
     sheets,
     namedRanges,
     dropdownLists,
-    originalWorkbook: workbook
+    originalWorkbook: workbook,
+    originalArrayBuffer: originalArrayBuffer,
+    fileName: file.name
   }
 }
 

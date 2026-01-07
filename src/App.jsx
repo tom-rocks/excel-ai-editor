@@ -30,8 +30,26 @@ function App() {
   }, [])
 
   const handleSheetChange = useCallback((index) => {
+    // Before switching, sync current sheet data to workbook state
+    if (spreadsheetRef.current && workbook) {
+      const currentData = spreadsheetRef.current.getData()
+      const currentFormulas = spreadsheetRef.current.getFormulas()
+      
+      setWorkbook(prev => {
+        if (!prev) return prev
+        const updated = { ...prev }
+        updated.sheets = [...prev.sheets]
+        updated.sheets[activeSheet] = {
+          ...updated.sheets[activeSheet],
+          data: currentData,
+          formulas: currentFormulas
+        }
+        return updated
+      })
+    }
+    
     setActiveSheet(index)
-  }, [])
+  }, [workbook, activeSheet])
 
   const getSpreadsheetData = useCallback(() => {
     if (!workbook) return null
@@ -142,7 +160,7 @@ function App() {
         </div>
         
         <div className="flex items-center gap-4">
-          {workbook && <DownloadButton workbook={workbook} spreadsheetRef={spreadsheetRef} fileName={fileName} />}
+          {workbook && <DownloadButton workbook={workbook} spreadsheetRef={spreadsheetRef} activeSheet={activeSheet} />}
         </div>
       </header>
 
