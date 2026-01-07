@@ -69,24 +69,45 @@ body {
   background: #1a1a24 !important;
 }
 
-/* Selection - current cell */
+/* Selection - current cell - AGGRESSIVE OVERRIDE */
 .handsontable td.current,
-.handsontable th.current {
-  background: rgba(0, 217, 255, 0.15) !important;
+.handsontable th.current,
+.handsontable tbody tr td.current,
+.handsontable .ht_master td.current {
+  background: #1a3a4a !important;
+  background-color: #1a3a4a !important;
   color: #ffffff !important;
 }
 
 /* Selection - area (multiple cells) */
 .handsontable td.area,
-.handsontable th.area {
-  background: rgba(0, 217, 255, 0.2) !important;
+.handsontable th.area,
+.handsontable tbody tr td.area,
+.handsontable .ht_master td.area {
+  background: #1a3a4a !important;
+  background-color: #1a3a4a !important;
   color: #ffffff !important;
 }
 
 /* Selection highlight */
 .handsontable td.area.highlight,
-.handsontable td.current.highlight {
-  background: rgba(0, 217, 255, 0.25) !important;
+.handsontable td.current.highlight,
+.handsontable .ht_master td.highlight {
+  background: #1a4a5a !important;
+  background-color: #1a4a5a !important;
+  color: #ffffff !important;
+}
+
+/* Force selection colors on all highlight states */
+.handsontable td.highlight,
+.handsontable .highlight {
+  background: #1a3a4a !important;
+  color: #ffffff !important;
+}
+
+/* Override any inline highlight styles */
+.handsontable td[style*="background"],
+.handsontable .ht_master td[style*="background"] {
   color: #ffffff !important;
 }
 

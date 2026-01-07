@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react'
 import { HotTable } from '@handsontable/react'
 import { HyperFormula } from 'hyperformula'
 import { registerAllModules } from 'handsontable/registry'
@@ -12,6 +12,7 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet }, ref) {
   const hotRef = useRef(null)
   const formulasRef = useRef({})
   const isApplyingChanges = useRef(false)
+  const [selectedCell, setSelectedCell] = useState({ cell: '', value: '', formula: '' })
 
   // Initialize formulas from sheet data on mount
   useEffect(() => {
@@ -236,35 +237,66 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet }, ref) {
     return index - 1
   }
 
+  // Handle cell selection to show formula
+  const handleAfterSelectionEnd = useCallback((row, col) => {
+    const hot = hotRef.current?.hotInstance
+    if (!hot) return
+    
+    const cellRef = indexToColumnLetter(col) + (row + 1)
+    const cellValue = hot.getDataAtCell(row, col)
+    const formula = formulasRef.current[cellRef] || ''
+    
+    setSelectedCell({
+      cell: cellRef,
+      value: cellValue,
+      formula: formula
+    })
+  }, [])
+
   if (!sheet) return null
 
   return (
-    <div className="h-full w-full overflow-hidden bg-surface">
-      <HotTable
-        ref={hotRef}
-        data={sheet.data}
-        formulas={{
-          engine: hyperformulaInstance
-        }}
-        rowHeaders={true}
-        colHeaders={colHeaders}
-        width="100%"
-        height="100%"
-        licenseKey="non-commercial-and-evaluation"
-        stretchH="all"
-        autoWrapRow={true}
-        autoWrapCol={true}
-        manualColumnResize={true}
-        manualRowResize={true}
-        contextMenu={true}
-        dropdownMenu={true}
-        filters={true}
-        multiColumnSorting={true}
-        undo={true}
-        afterChange={handleAfterChange}
-        cells={cells}
-        className="htDark"
-      />
+    <div className="h-full w-full overflow-hidden bg-surface flex flex-col">
+      {/* Formula Bar */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface-light border-b border-surface-light">
+        <div className="w-16 px-2 py-1 bg-midnight rounded text-center text-accent font-mono text-sm">
+          {selectedCell.cell || 'A1'}
+        </div>
+        <div className="text-gray-500">ƒ</div>
+        <div className="flex-1 px-3 py-1 bg-midnight rounded font-mono text-sm text-white overflow-hidden">
+          {selectedCell.formula || selectedCell.value || ''}
+        </div>
+      </div>
+      
+      {/* Spreadsheet */}
+      <div className="flex-1 overflow-hidden">
+        <HotTable
+          ref={hotRef}
+          data={sheet.data}
+          formulas={{
+            engine: hyperformulaInstance
+          }}
+          rowHeaders={true}
+          colHeaders={colHeaders}
+          width="100%"
+          height="100%"
+          licenseKey="non-commercial-and-evaluation"
+          stretchH="all"
+          autoWrapRow={true}
+          autoWrapCol={true}
+          manualColumnResize={true}
+          manualRowResize={true}
+          contextMenu={true}
+          dropdownMenu={true}
+          filters={true}
+          multiColumnSorting={true}
+          undo={true}
+          afterChange={handleAfterChange}
+          afterSelectionEnd={handleAfterSelectionEnd}
+          cells={cells}
+          className="htDark"
+        />
+      </div>
     </div>
   )
 })
