@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12121a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a3a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4a;
+}
+
+/* Handsontable customization */
+.handsontable {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+}
+
+.handsontable th,
+.handsontable td {
+  background: #12121a !important;
+  color: #e0e0e0 !important;
+  border-color: #2a2a3a !important;
+}
+
+.handsontable th {
+  background: #1a1a24 !important;
+  color: #888 !important;
+  font-weight: 500 !important;
+}
+
+.handsontable .htCore thead th {
+  background: #1a1a24 !important;
+}
+
+.handsontable td.current,
+.handsontable td.area {
+  background: rgba(0, 217, 255, 0.1) !important;
+}
+
+.handsontable .wtBorder.current {
+  background-color: #00d9ff !important;
+}
+
+.handsontable .wtBorder.area {
+  background-color: rgba(0, 217, 255, 0.5) !important;
+}
+
+.handsontable input,
+.handsontable textarea {
+  background: #1a1a24 !important;
+  color: #e0e0e0 !important;
+  border: 1px solid #00d9ff !important;
+}
+
+/* Formula cells */
+.handsontable td.formula-cell {
+  color: #00ff88 !important;
+}
+
+/* Animation for loading */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 217, 255, 0.6);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Chat messages */
+.message-user {
+  background: linear-gradient(135deg, #1a1a24 0%, #12121a 100%);
+  border-left: 3px solid #00d9ff;
+}
+
+.message-assistant {
+  background: linear-gradient(135deg, #0f1a1a 0%, #0a1212 100%);
+  border-left: 3px solid #00ff88;
+}
+
+/* Drag and drop area */
+.drop-zone {
+  background: radial-gradient(ellipse at center, rgba(0, 217, 255, 0.05) 0%, transparent 70%);
+  transition: all 0.3s ease;
+}
+
+.drop-zone.active {
+  background: radial-gradient(ellipse at center, rgba(0, 217, 255, 0.15) 0%, transparent 70%);
+  border-color: #00d9ff !important;
+}
