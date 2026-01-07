@@ -188,6 +188,54 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet }, ref) {
     return Array.from({ length: numCols }, (_, i) => indexToColumnLetter(i))
   }, [sheet?.data?.[0]?.length])
 
+  // Parse dropdown configurations from sheet.dropdowns
+  const dropdownColumns = useMemo(() => {
+    if (!sheet?.dropdowns || sheet.dropdowns.length === 0) return {}
+    
+    const config = {}
+    sheet.dropdowns.forEach(dropdown => {
+      // Parse range like "D2:D501" to get column
+      const rangeMatch = dropdown.range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/)
+      if (rangeMatch) {
+        const colLetter = rangeMatch[1]
+        const colIndex = columnLetterToIndex(colLetter)
+        const startRow = parseInt(rangeMatch[2]) - 1
+        const endRow = parseInt(rangeMatch[4]) - 1
+        
+        config[colIndex] = {
+          options: dropdown.options,
+          startRow,
+          endRow,
+          listName: dropdown.listName
+        }
+      }
+    })
+    return config
+  }, [sheet?.dropdowns])
+
+  // Cell renderer to apply dropdown type to specific cells
+  const cells = useCallback((row, col) => {
+    const dropdownConfig = dropdownColumns[col]
+    if (dropdownConfig && row >= dropdownConfig.startRow && row <= dropdownConfig.endRow) {
+      return {
+        type: 'dropdown',
+        source: dropdownConfig.options,
+        strict: false, // Allow values not in the list
+        allowInvalid: true
+      }
+    }
+    return {}
+  }, [dropdownColumns])
+
+  // Helper to convert column letter to index
+  const columnLetterToIndex = (letter) => {
+    let index = 0
+    for (let i = 0; i < letter.length; i++) {
+      index = index * 26 + (letter.charCodeAt(i) - 64)
+    }
+    return index - 1
+  }
+
   if (!sheet) return null
 
   return (
@@ -214,6 +262,7 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet }, ref) {
         multiColumnSorting={true}
         undo={true}
         afterChange={handleAfterChange}
+        cells={cells}
         className="htDark"
       />
     </div>

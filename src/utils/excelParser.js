@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
 
 /**
  * Parse an Excel file and convert it to our internal format
@@ -6,46 +7,136 @@ import * as XLSX from 'xlsx'
  * @returns {Promise<Object>} Parsed workbook data
  */
 export async function parseExcelFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
+  const arrayBuffer = await file.arrayBuffer()
+  const data = new Uint8Array(arrayBuffer)
+  
+  // Parse with SheetJS
+  const workbook = XLSX.read(data, { 
+    type: 'array',
+    cellFormula: true,
+    cellStyles: true,
+    cellNF: true,
+    cellDates: true
+  })
+  
+  // Extract data validations from raw XML
+  const validations = await extractDataValidations(arrayBuffer, workbook.SheetNames)
+  
+  // Get named ranges
+  const namedRanges = {}
+  if (workbook.Workbook?.Names) {
+    workbook.Workbook.Names.forEach(n => {
+      namedRanges[n.Name] = n.Ref
+    })
+  }
+  
+  // Resolve dropdown lists from named ranges
+  const dropdownLists = resolveDropdownLists(workbook, namedRanges)
+  
+  const sheets = workbook.SheetNames.map((sheetName, idx) => {
+    const worksheet = workbook.Sheets[sheetName]
+    const { data: sheetData, formulas } = convertSheetToData(worksheet)
     
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result)
-        const workbook = XLSX.read(data, { 
-          type: 'array',
-          cellFormula: true,
-          cellStyles: true,
-          cellNF: true,
-          cellDates: true
-        })
-        
-        const sheets = workbook.SheetNames.map(sheetName => {
-          const worksheet = workbook.Sheets[sheetName]
-          const { data: sheetData, formulas } = convertSheetToData(worksheet)
-          
+    // Get dropdowns for this sheet
+    const sheetValidations = validations[idx] || []
+    const dropdowns = sheetValidations.map(v => ({
+      range: v.sqref,
+      listName: v.formula,
+      options: dropdownLists[v.formula] || []
+    })).filter(d => d.options.length > 0)
+    
+    return {
+      name: sheetName,
+      data: sheetData,
+      formulas: formulas,
+      dropdowns: dropdowns,
+      merges: worksheet['!merges'] || [],
+      colWidths: getColumnWidths(worksheet),
+      rowHeights: getRowHeights(worksheet)
+    }
+  })
+  
+  return {
+    sheets,
+    namedRanges,
+    dropdownLists,
+    originalWorkbook: workbook
+  }
+}
+
+/**
+ * Extract data validations from the raw xlsx file
+ */
+async function extractDataValidations(arrayBuffer, sheetNames) {
+  try {
+    const zip = await JSZip.loadAsync(arrayBuffer)
+    const validations = {}
+    
+    for (let i = 0; i < sheetNames.length; i++) {
+      const sheetFile = `xl/worksheets/sheet${i + 1}.xml`
+      const file = zip.file(sheetFile)
+      if (!file) continue
+      
+      const xml = await file.async('string')
+      const matches = xml.match(/<dataValidation[^]*?<\/dataValidation>/g)
+      
+      if (matches) {
+        validations[i] = matches.map(v => {
+          const sqref = v.match(/sqref="([^"]+)"/)
+          const formula = v.match(/<formula1>([^<]+)<\/formula1>/)
           return {
-            name: sheetName,
-            data: sheetData,
-            formulas: formulas,
-            merges: worksheet['!merges'] || [],
-            colWidths: getColumnWidths(worksheet),
-            rowHeights: getRowHeights(worksheet)
+            sqref: sqref ? sqref[1] : null,
+            formula: formula ? formula[1] : null
           }
-        })
-        
-        resolve({
-          sheets,
-          originalWorkbook: workbook
-        })
-      } catch (error) {
-        reject(error)
+        }).filter(v => v.sqref && v.formula)
       }
     }
     
-    reader.onerror = reject
-    reader.readAsArrayBuffer(file)
+    return validations
+  } catch (e) {
+    console.error('Error extracting data validations:', e)
+    return {}
+  }
+}
+
+/**
+ * Resolve dropdown lists from named ranges
+ */
+function resolveDropdownLists(workbook, namedRanges) {
+  const lists = {}
+  
+  Object.entries(namedRanges).forEach(([name, ref]) => {
+    // Parse OFFSET formulas like: OFFSET(Listas!$A$2,0,0,COUNTA(Listas!$A:$A)-1,1)
+    const offsetMatch = ref.match(/OFFSET\(([^!]+)!\$([A-Z]+)\$(\d+)/)
+    if (offsetMatch) {
+      const sheetName = offsetMatch[1]
+      const col = offsetMatch[2]
+      const startRow = parseInt(offsetMatch[3])
+      
+      const sheet = workbook.Sheets[sheetName]
+      if (!sheet) return
+      
+      // Get values from that column
+      const values = []
+      const colIndex = columnLetterToIndex(col)
+      
+      // Read up to 1000 rows
+      for (let row = startRow; row < startRow + 1000; row++) {
+        const cellRef = col + row
+        const cell = sheet[cellRef]
+        if (cell && cell.v !== undefined && cell.v !== '') {
+          values.push(String(cell.v))
+        } else if (values.length > 0) {
+          // Stop at first empty cell after data
+          break
+        }
+      }
+      
+      lists[name] = values
+    }
   })
+  
+  return lists
 }
 
 /**
@@ -74,10 +165,8 @@ function convertSheetToData(worksheet) {
         
         // Get display value
         if (cell.f) {
-          // For formula cells, show the calculated value
           row.push(cell.v !== undefined ? cell.v : '')
         } else if (cell.t === 'd') {
-          // Date
           row.push(cell.v)
         } else if (cell.v !== undefined) {
           row.push(cell.v)
