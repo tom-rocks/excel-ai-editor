@@ -3,7 +3,7 @@ import { HotTable } from '@handsontable/react'
 import { HyperFormula } from 'hyperformula'
 import { registerAllModules } from 'handsontable/registry'
 import 'handsontable/dist/handsontable.full.min.css'
-import { indexToColumnLetter, parseCellReference, parseRangeReference } from '../utils/excelParser'
+import { indexToColumnLetter, columnLetterToIndex, parseCellReference, parseRangeReference } from '../utils/excelParser'
 
 // Register all Handsontable modules
 registerAllModules()
@@ -227,15 +227,6 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet }, ref) {
     }
     return {}
   }, [dropdownColumns])
-
-  // Helper to convert column letter to index
-  const columnLetterToIndex = (letter) => {
-    let index = 0
-    for (let i = 0; i < letter.length; i++) {
-      index = index * 26 + (letter.charCodeAt(i) - 64)
-    }
-    return index - 1
-  }
 
   // Handle cell selection to show formula
   const handleAfterSelectionEnd = useCallback((row, col) => {
