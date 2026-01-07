@@ -55,19 +55,6 @@ function App() {
     }
   }, [])
 
-  const updateWorkbookData = useCallback((sheetIndex, newData, newFormulas) => {
-    setWorkbook(prev => {
-      if (!prev) return prev
-      const updated = { ...prev }
-      updated.sheets = [...prev.sheets]
-      updated.sheets[sheetIndex] = {
-        ...updated.sheets[sheetIndex],
-        data: newData,
-        formulas: newFormulas
-      }
-      return updated
-    })
-  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-midnight">
@@ -107,7 +94,6 @@ function App() {
                 <Spreadsheet 
                   ref={spreadsheetRef}
                   sheet={workbook.sheets[activeSheet]}
-                  onDataChange={(data, formulas) => updateWorkbookData(activeSheet, data, formulas)}
                 />
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react'
 import { HotTable } from '@handsontable/react'
 import { HyperFormula } from 'hyperformula'
 import { registerAllModules } from 'handsontable/registry'
@@ -8,21 +8,30 @@ import { indexToColumnLetter, parseCellReference, parseRangeReference } from '..
 // Register all Handsontable modules
 registerAllModules()
 
-const Spreadsheet = forwardRef(function Spreadsheet({ sheet, onDataChange }, ref) {
+const Spreadsheet = forwardRef(function Spreadsheet({ sheet }, ref) {
   const hotRef = useRef(null)
   const formulasRef = useRef({})
+  const isApplyingChanges = useRef(false)
 
-  // Initialize formulas from sheet data
+  // Initialize formulas from sheet data on mount
   useEffect(() => {
     if (sheet?.formulas) {
       formulasRef.current = { ...sheet.formulas }
     }
   }, [sheet?.name])
 
-  // Create HyperFormula instance
+  // Create HyperFormula instance - only once
   const hyperformulaInstance = useMemo(() => {
     return HyperFormula.buildEmpty({
       licenseKey: 'gpl-v3'
+    })
+  }, [])
+
+  // Adjust formula row references (e.g., =A2-B2 becomes =A3-B3)
+  const adjustFormulaForRow = useCallback((formula, offset) => {
+    return formula.replace(/([A-Z]+)(\d+)/g, (match, col, row) => {
+      const newRow = parseInt(row, 10) + offset - 1
+      return col + newRow
     })
   }, [])
 
@@ -42,86 +51,95 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet, onDataChange }, ref
       const hot = hotRef.current?.hotInstance
       if (!hot) return
       
-      changes.forEach(change => {
-        const { type, sheet: sheetName, cell, value, formula, range, afterColumn, header } = change
-        
-        switch (type) {
-          case 'setCellValue': {
-            const ref = parseCellReference(cell)
-            if (ref) {
-              hot.setDataAtCell(ref.row, ref.col, value)
-            }
-            break
-          }
-          
-          case 'setFormula': {
-            const ref = parseCellReference(cell)
-            if (ref) {
-              // Store formula
-              formulasRef.current[cell] = formula
-              // Set the formula in the cell - Handsontable with formulas plugin will calculate it
-              hot.setDataAtCell(ref.row, ref.col, formula)
-            }
-            break
-          }
-          
-          case 'insertColumn': {
-            const colIndex = afterColumn ? 
-              afterColumn.charCodeAt(0) - 64 : // A=1, B=2, etc
-              hot.countCols()
-            hot.alter('insert_col_start', colIndex)
-            if (header) {
-              hot.setDataAtCell(0, colIndex, header)
-            }
-            break
-          }
-          
-          case 'insertRow': {
-            const rowIndex = change.afterRow || hot.countRows()
-            hot.alter('insert_row_below', rowIndex)
-            break
-          }
-          
-          case 'applyFormulaToRange': {
-            const rangeRef = parseRangeReference(range)
-            if (rangeRef) {
-              const { start, end } = rangeRef
-              for (let r = start.row; r <= end.row; r++) {
-                // Adjust formula row references
-                const adjustedFormula = adjustFormulaForRow(formula, r - start.row + 1)
-                const cellRef = indexToColumnLetter(start.col) + (r + 1)
-                formulasRef.current[cellRef] = adjustedFormula
-                hot.setDataAtCell(r, start.col, adjustedFormula)
-              }
-            }
-            break
-          }
-          
-          case 'deleteColumn': {
-            const ref = parseCellReference(cell || 'A1')
-            if (ref) {
-              hot.alter('remove_col', ref.col)
-            }
-            break
-          }
-          
-          case 'deleteRow': {
-            const rowNum = change.row || 0
-            hot.alter('remove_row', rowNum)
-            break
-          }
-        }
-      })
+      // Set flag to prevent infinite loop
+      isApplyingChanges.current = true
       
-      hot.render()
+      try {
+        changes.forEach(change => {
+          const { type, cell, value, formula, range, afterColumn, header } = change
+          
+          switch (type) {
+            case 'setCellValue': {
+              const cellRef = parseCellReference(cell)
+              if (cellRef) {
+                hot.setDataAtCell(cellRef.row, cellRef.col, value, 'programmatic')
+              }
+              break
+            }
+            
+            case 'setFormula': {
+              const cellRef = parseCellReference(cell)
+              if (cellRef) {
+                formulasRef.current[cell] = formula
+                hot.setDataAtCell(cellRef.row, cellRef.col, formula, 'programmatic')
+              }
+              break
+            }
+            
+            case 'insertColumn': {
+              const colIndex = afterColumn ? 
+                afterColumn.charCodeAt(0) - 64 :
+                hot.countCols()
+              hot.alter('insert_col_start', colIndex)
+              if (header) {
+                hot.setDataAtCell(0, colIndex, header, 'programmatic')
+              }
+              break
+            }
+            
+            case 'insertRow': {
+              const rowIndex = change.afterRow || hot.countRows()
+              hot.alter('insert_row_below', rowIndex)
+              break
+            }
+            
+            case 'applyFormulaToRange': {
+              const rangeRef = parseRangeReference(range)
+              if (rangeRef) {
+                const { start, end } = rangeRef
+                const cellChanges = []
+                for (let r = start.row; r <= end.row; r++) {
+                  const adjustedFormula = adjustFormulaForRow(formula, r - start.row + 1)
+                  const cellRefStr = indexToColumnLetter(start.col) + (r + 1)
+                  formulasRef.current[cellRefStr] = adjustedFormula
+                  cellChanges.push([r, start.col, adjustedFormula])
+                }
+                hot.setDataAtCell(cellChanges, 'programmatic')
+              }
+              break
+            }
+            
+            case 'deleteColumn': {
+              const cellRef = parseCellReference(cell || 'A1')
+              if (cellRef) {
+                hot.alter('remove_col', cellRef.col)
+              }
+              break
+            }
+            
+            case 'deleteRow': {
+              const rowNum = change.row || 0
+              hot.alter('remove_row', rowNum)
+              break
+            }
+          }
+        })
+        
+        hot.render()
+      } finally {
+        // Reset flag after a short delay to allow React to settle
+        setTimeout(() => {
+          isApplyingChanges.current = false
+        }, 100)
+      }
     },
     
     getCellValue: (cell) => {
       const hot = hotRef.current?.hotInstance
       if (!hot) return null
-      const ref = parseCellReference(cell)
-      if (!ref) return null
-      return hot.getDataAtCell(ref.row, ref.col)
+      const cellRef = parseCellReference(cell)
+      if (!cellRef) return null
+      return hot.getDataAtCell(cellRef.row, cellRef.col)
     },
     
     getCellRange: (range) => {
@@ -141,45 +159,34 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet, onDataChange }, ref
       }
       return data
     }
-  }), [sheet])
+  }), [sheet, adjustFormulaForRow])
 
-  // Adjust formula row references (e.g., =A2-B2 becomes =A3-B3)
-  const adjustFormulaForRow = (formula, offset) => {
-    return formula.replace(/([A-Z]+)(\d+)/g, (match, col, row) => {
-      const newRow = parseInt(row, 10) + offset - 1
-      return col + newRow
-    })
-  }
-
-  // Handle cell changes
-  const handleAfterChange = (changes, source) => {
-    if (source === 'loadData') return
+  // Handle cell changes - only for user edits
+  const handleAfterChange = useCallback((changes, source) => {
+    // Skip if loading data or applying programmatic changes
+    if (source === 'loadData' || source === 'programmatic' || isApplyingChanges.current) {
+      return
+    }
     
     const hot = hotRef.current?.hotInstance
-    if (!hot) return
+    if (!hot || !changes) return
     
     // Update formulas ref for any formula changes
-    if (changes) {
-      changes.forEach(([row, col, oldValue, newValue]) => {
-        const cellRef = indexToColumnLetter(col) + (row + 1)
-        if (typeof newValue === 'string' && newValue.startsWith('=')) {
-          formulasRef.current[cellRef] = newValue
-        } else if (formulasRef.current[cellRef]) {
-          delete formulasRef.current[cellRef]
-        }
-      })
-    }
-    
-    if (onDataChange) {
-      onDataChange(hot.getData(), formulasRef.current)
-    }
-  }
+    changes.forEach(([row, col, oldValue, newValue]) => {
+      const cellRef = indexToColumnLetter(col) + (row + 1)
+      if (typeof newValue === 'string' && newValue.startsWith('=')) {
+        formulasRef.current[cellRef] = newValue
+      } else if (formulasRef.current[cellRef]) {
+        delete formulasRef.current[cellRef]
+      }
+    })
+  }, [])
 
   // Generate column headers (A, B, C, ... AA, AB, etc.)
   const colHeaders = useMemo(() => {
     const numCols = sheet?.data?.[0]?.length || 26
     return Array.from({ length: numCols }, (_, i) => indexToColumnLetter(i))
-  }, [sheet?.data])
+  }, [sheet?.data?.[0]?.length])
 
   if (!sheet) return null
 
@@ -202,23 +209,12 @@ const Spreadsheet = forwardRef(function Spreadsheet({ sheet, onDataChange }, ref
         manualColumnResize={true}
         manualRowResize={true}
         contextMenu={true}
-        comments={true}
-        customBorders={true}
         dropdownMenu={true}
         filters={true}
         multiColumnSorting={true}
         undo={true}
         afterChange={handleAfterChange}
         className="htDark"
-        cell={Object.entries(formulasRef.current).map(([cellRef, formula]) => {
-          const ref = parseCellReference(cellRef)
-          if (!ref) return null
-          return {
-            row: ref.row,
-            col: ref.col,
-            className: 'formula-cell'
-          }
-        }).filter(Boolean)}
       />
     </div>
   )
